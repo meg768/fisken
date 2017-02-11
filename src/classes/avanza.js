@@ -40,6 +40,43 @@ var Module = module.exports = function(credentials) {
 		return options;
 	}
 
+	function makeRequest(options) {
+		return new Promise(function(resolve, reject) {
+
+			var requestOptions = {};
+			extend(requestOptions, getDefaultRequestOptions(), options);
+
+			console.log(requestOptions.method, requestOptions.url);
+
+			request(requestOptions, function (error, response, body) {
+
+				try {
+
+					if (error)
+						throw error;
+
+					if (response.statusCode != 200) {
+						console.log(response.body);
+						throw new Error(sprintf('Invalid status code %d', response.statusCode));
+
+					}
+
+					if (response.headers['content-type'].match(/application\/json/)) {
+						resolve(JSON.parse(response.body));
+					}
+					else {
+						resolve(response.body.toString());
+					}
+				}
+				catch (error) {
+					reject(error);
+				}
+
+			});
+		});
+
+	}
+
 
 	function getAccountsOverview() {
 
@@ -121,43 +158,18 @@ var Module = module.exports = function(credentials) {
 		}]
 		*/
 
-		return getJSON(sprintf('https://www.avanza.se/_mobile/account/list?onlyTradable=false'));
-	}
-/*
-	function makeRequest(options) {
-		return new Promise(function(resolve, reject) {
-
-			var requestOptions = {};
-			extend(requestOptions, getDefaultRequestOptions(), options);
-
-			console.log(requestOptions.url);
-
-			request(requestOptions, function (error, response, body) {
-
-				try {
-
-					if (error)
-						throw error;
-
-					if (response.statusCode != 200)
-						throw new Error(sprintf('Invalid status code %d', response.statusCode));
-
-					// Convert to JSON
-					var json = JSON.parse(response.body);
-
-					resolve(json);
-
-				}
-				catch (error) {
-					reject(error);
-				}
-
-			});
+		return makeRequest({
+			method: 'GET',
+			url: sprintf('https://www.avanza.se/_mobile/account/list?onlyTradable=false')
 		});
-
 	}
-	*/
+
+
 	function getJSON(url) {
+		return makeRequest({
+			url: url,
+			method: 'GET'
+		});
 		return new Promise(function(resolve, reject) {
 			var options = getDefaultRequestOptions();
 
@@ -173,8 +185,10 @@ var Module = module.exports = function(credentials) {
 					if (error)
 						throw error;
 
-					if (response.statusCode != 200)
+					if (response.statusCode != 200) {
 						throw new Error(sprintf('Invalid status code %d', response.statusCode));
+
+					}
 
 					// Convert to JSON
 					var json = JSON.parse(response.body);
@@ -190,13 +204,19 @@ var Module = module.exports = function(credentials) {
 		});
 	}
 
-/*
+
 	this.deleteOrder = function deleteOrder(accountId, orderbookId) {
-		return makeRequest({});
+		return makeRequest({
+			method: 'DELETE',
+			url: sprintf('https://www.avanza.se/_api/order?accountId=%s&orderId=%s', accountId, orderbookId)
+		});
 	}
-*/
+
 	this.getOrders = function getOrders() {
-		return getJSON(sprintf('https://www.avanza.se/_mobile/account/dealsandorders'));
+		return makeRequest({
+			method: 'GET',
+			url: sprintf('https://www.avanza.se/_mobile/account/dealsandorders')
+		});
 	}
 
 	function getStock(id) {

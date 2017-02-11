@@ -63,7 +63,7 @@ var Module = module.exports = function() {
 		return new Promise(function(resolve, reject) {
 			var options = {};
 
-			options.url       = 'https://129.178.54.199/1000/ServiceFactory/_pts/LoginMbidStart.aspx';
+			options.url       = 'https://mp.seb.se/1000/ServiceFactory/_pts/LoginMbidStart.aspx';
 			options.strictSSL = false;
 			options.jar       = true;
 			options.body      = sprintf('A1=%s', ssid);
@@ -109,7 +109,7 @@ var Module = module.exports = function() {
 
 			options.strictSSL = false;
 			options.jar       = true;
-			options.url       = 'https://129.178.54.199/1000/ServiceFactory/_pts/LoginMbidStatus.aspx';
+			options.url       = 'https://mp.seb.se/1000/ServiceFactory/_pts/LoginMbidStatus.aspx';
 
 			options.headers                     = getDefaultHeaders();
 			options.headers['Content-Type']     = 'application/x-www-form-urlencoded';
@@ -172,7 +172,7 @@ var Module = module.exports = function() {
 		return new Promise(function(resolve, reject) {
 			var options = {};
 
-			options.url       = 'https://129.178.54.199/nauth2/Authentication/Auth?SEB_Referer=/priv/ServiceFactory-mbid';
+			options.url       = 'https://mp.seb.se/nauth2/Authentication/Auth?SEB_Referer=/priv/ServiceFactory-mbid';
 			options.strictSSL = false;
 			options.jar       = true;
 
@@ -250,7 +250,7 @@ var Module = module.exports = function() {
 			try {
 				var options = {};
 
-				options.url       = 'https://129.178.54.199/1000/ServiceFactory/PC_BANK/PC_BankAktivera01Session01.asmx/Execute';
+				options.url       = 'https://mp.seb.se/1000/ServiceFactory/PC_BANK/PC_BankAktivera01Session01.asmx/Execute';
 				options.strictSSL = false;
 				options.jar       = true;
 				options.gzip      = true;
@@ -323,68 +323,8 @@ var Module = module.exports = function() {
 
 
 
-	function getAccounts(session) {
-		return new Promise(function(resolve, reject) {
 
-			var json = {
-				"request": {
-					"ServiceInput": [{
-						"VariableName": "KUND_ID",
-						"VariableNamePossibleValues": [],
-						"Condition": "EQ",
-						"VariableValue": session.VODB.USRINF01.SEB_KUND_NR
-					}]
-				}
-			};
-			try {
-				var options = {};
-
-				options.url       = 'https://129.178.54.199/1000/ServiceFactory/PC_BANK/PC_BankLista01Konton_privat01.asmx/Execute';
-				options.strictSSL = false;
-				options.jar       = true;
-				options.gzip      = true;
-				options.body      = JSON.stringify(json);
-
-				options.headers                 = getDefaultHeaders();
-				options.headers['Accept']       = 'application/json';
-				options.headers['logfileid']    = 'MAS-iOS-PoC';
-				options.headers['Content-Type'] = 'application/json;charset=UTF-8';
-
-				request.post(options, function (error, response, body) {
-
-					try {
-						if (error)
-							throw error;
-
-						if (response.statusCode != 200)
-							throw new Error(sprintf('Invalid status code: %d', response.statusCode));
-
-						if (response.headers['sebstatus'] != 200)
-							throw new Error(sprintf('Invalid status sebstatus code: %d', response.headers['sebstatus']));
-
-						// Convert to JSON
-						var json = JSON.parse(response.body);
-
-						// And fetch the 'd' object
-						resolve(json.d ? json.d : {});
-					}
-					catch (error) {
-						reject(error);
-					}
-
-				});
-
-			}
-			catch(error) {
-				reject(error);
-			}
-		});
-
-
-	}
-
-
-	function fetch(session, url) {
+	function fetch(session, url, data, name) {
 		return new Promise(function(resolve, reject) {
 
 			var json = {
@@ -426,8 +366,10 @@ var Module = module.exports = function() {
 						// Convert to JSON
 						var json = JSON.parse(response.body);
 
+						data[name] = json.d ? json.d : {};
+
 						// And fetch the 'd' object
-						resolve(json.d ? json.d : {});
+						resolve();
 					}
 					catch (error) {
 						reject(error);
@@ -448,16 +390,31 @@ var Module = module.exports = function() {
 	function run() {
 
 		login('6606223995').then(function(session) {
-			console.log(JSON.stringify(session, null, '\t'));
 
+			var list = [
+				{name:'private-accounts',    url:'https://mp.seb.se/1000/ServiceFactory/PC_BANK/PC_BankLista01Konton_privat01.asmx/Execute' },
+				{name:'fund-holdings',       url:'https://mp.seb.se/1000/ServiceFactory/PC_BANK/PC_BankLista01Fond_innehav02.asmx/Execute' },
+				{name:'custidy-holdings',    url:'https://mp.seb.se/1000/ServiceFactory/PC_BANK/PC_BankLista11Depainnehav02.asmx/Execute' },
+				{name:'credit-cards',        url:'https://mp.seb.se/1000/ServiceFactory/PC_BANK/PC_BankLista11Kortkonto01.asmx/Execute' },
+				{name:'insurance',           url:'https://mp.seb.se/1000/ServiceFactory/PC_BANK/Tl_forsakringLista11Enga01.asmx/Execute' }
+			];
+
+			var promise = Promise.resolve();
 			var data = {};
 
-			getAccounts(session).then(function(result) {
-				console.log(JSON.stringify(result, null, '\t'));
+			list.forEach(function(item) {
+				promise = promise.then(function() {
+					return fetch(session, item.url, data, item.name);
+				});
+			});
+
+			promise.then(function() {
+				console.log(JSON.stringify(data, null, '\t'));
 			})
 			.catch(function(error) {
-				console.log(error);
+				console.error(error.message);
 			});
+
 		})
 		.catch(function(error) {
 			console.log(error);

@@ -18,6 +18,8 @@
   "homepage": "https://github.com/meg768/fisken#readme",
   "dependencies": {
     "request": "^2.79.0",
+    "text-table": "^0.2.0",
+    "yargs": "^6.6.0",
     "yow": "^1.0.45"
   }
 }

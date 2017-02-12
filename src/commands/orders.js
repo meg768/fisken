@@ -70,14 +70,15 @@ var Module = new function() {
 					var list = [];
 					var header = [];
 
-					header.push(['Order ID', 'Type', 'Account', 'Instrument', 'Price', 'Volume', 'Status']);
+					header.push(['ID', 'Account', 'Type', 'Instrument', 'Price', 'Volume', 'Status']);
 
 					json.orders.forEach(function(order) {
 
-						list.push([order.orderId, order.type, sprintf('%s (%s)', order.account.name, order.account.id), sprintf('%s (%d)', order.orderbook.name, order.orderbook.id), order.price, order.volume, order.status]);
+						list.push([order.orderId, sprintf('%s (%s)', order.account.name, order.account.id), order.type, sprintf('%s (%d)', order.orderbook.name, order.orderbook.id), order.price, order.volume, order.status]);
 					});
 
-					console.log(table(header.concat(list), {align:['l','l', 'l', 'l', 'r', 'r', 'l']}));
+					if (list.length > 0)
+						console.log(table(header.concat(list), {align:['l','l', 'l', 'l', 'r', 'r', 'l']}));
 
 				}
 				resolve();

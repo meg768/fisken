@@ -32,17 +32,17 @@ var Module = new function() {
 						var list = [];
 						var header = [];
 
-						header.push(['Name', 'ID', 'Volume', 'Value', 'Ccy', 'Type']);
+						header.push(['ID', 'Name', 'Volume', 'Value', 'Ccy', 'Profit (%)', 'Type']);
 
 						positions.instrumentPositions.forEach(function(instrumentPosition) {
 							instrumentPosition.positions.forEach(function(position) {
 								//console.log(position.name);
-								list.push([position.name, position.orderbookId, Math.round(position.volume), Math.round(position.value), position.currency, instrumentPosition.instrumentType]);
+								list.push([position.orderbookId, position.name, Math.round(position.volume), Math.round(position.value), position.currency, sprintf('%.1f', position.profitPercent), instrumentPosition.instrumentType]);
 
 							});
 						});
 
-						console.log(table(header.concat(list), {align:['l', 'r', 'r', 'r']}));
+						console.log(table(header.concat(list), {align:['l', 'l', 'r', 'r', 'l', 'r', 'l']}));
 
 					}
 				})

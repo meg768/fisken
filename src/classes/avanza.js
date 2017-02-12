@@ -24,6 +24,9 @@ var Module = module.exports = function(credentials) {
 		if (isString(_session.authenticationSession))
 			headers['X-AuthenticationSession'] = _session.authenticationSession;
 
+		if (isString(_session.securityToken))
+			headers['X-SecurityToken'] = _session.securityToken;
+
 		return headers;
 	}
 
@@ -236,29 +239,25 @@ var Module = module.exports = function(credentials) {
 					var now = new Date();
 					var payload = {};
 
-					payload.accountId   = accountId;
+					payload.accountId   = accountId.toString();
 					payload.orderType   = 'BUY';
-					payload.orderbookId = orderbookId;
-					payload.price       = json.orderbook.sellPrice;
+					payload.orderbookId = orderbookId.toString();
+					payload.price       = json.orderbook.sellPrice != undefined ? json.orderbook.sellPrice : json.orderbook.lastPrice;
 					payload.volume      = volume;
 					payload.validUntil  = sprintf('%04d-%02d-%02d', now.getFullYear(), now.getMonth() + 1, now.getDate());
 
 					if (payload.volume * payload.price > json.account.buyingPower)
 						throw new Error(sprintf('Missing buying power'));
 
-					console.log('-------------------------------------');
-					console.log('Buy payload');
-					console.log(payload);
-
-					return Promise.resolve();
-					//return postJSON(session, 'https://www.avanza.se/_api/order', payload);
-
-
+					return postJSON('https://www.avanza.se/_api/order', payload);
 				}
 				catch (error) {
 					reject(error);
 				}
 
+			})
+			.then(function(json) {
+				resolve(json);
 			})
 			.catch (function(error) {
 				reject(error);
@@ -379,8 +378,11 @@ var Module = module.exports = function(credentials) {
 						if (error)
 							throw error;
 
-						if (response.statusCode != 200)
+						if (response.statusCode != 200) {
+							console.log(response.body);
 							throw new Error(sprintf('Invalid status code %d', response.statusCode));
+
+						}
 
 						// Convert to JSON
 						var json = JSON.parse(response.body);
@@ -439,6 +441,7 @@ var Module = module.exports = function(credentials) {
 								authenticationSession: json.authenticationSession,
 								customerId: json.customerId,
 								username: username,
+								securityToken: response.headers['x-securitytoken'],
 								pushSubscriptionId: json.pushSubscriptionId
 							};
 
@@ -619,6 +622,7 @@ var Module = module.exports = function(credentials) {
 								authenticationSession: json.authenticationSession,
 								customerId: json.customerId,
 								username: session.username,
+								securityToken: response.headers['x-securitytoken'],
 								pushSubscriptionId: json.pushSubscriptionId
 							});
 

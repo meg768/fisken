@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-var request  = require('request');
 var sprintf  = require('yow/sprintf');
 var extend   = require('yow/extend');
 var isArray  = require('yow/is').isArray;
@@ -11,226 +10,132 @@ var Module = module.exports = function(credentials) {
 
 	var _session = {};
 
+	function request(options) {
 
-	function getDefaultHeaders() {
+		function getDefaultOptions() {
 
-		var headers = {};
+			function getDefaultHeaders() {
 
-		headers['Connection']       = 'Keep-Alive';
-		headers['Accept-Encoding']  = 'gzip';
-		headers['User-Agent']       = 'Avanza/se.avanzabank.androidapplikation (3.8.0 (541); Android 6.0.1)';
-		headers['Host']             = 'www.avanza.se';
+				var headers = {};
 
-		if (isString(_session.authenticationSession))
-			headers['X-AuthenticationSession'] = _session.authenticationSession;
+				headers['Connection']       = 'Keep-Alive';
+				headers['Accept-Encoding']  = 'gzip';
+				headers['User-Agent']       = 'Avanza/se.avanzabank.androidapplikation (3.8.0 (541); Android 6.0.1)';
+				headers['Host']             = 'www.avanza.se';
 
-		if (isString(_session.securityToken))
-			headers['X-SecurityToken'] = _session.securityToken;
+				if (isString(_session.authenticationSession))
+					headers['X-AuthenticationSession'] = _session.authenticationSession;
 
-		return headers;
-	}
+				if (isString(_session.securityToken))
+					headers['X-SecurityToken'] = _session.securityToken;
 
-	function getDefaultRequestOptions() {
+				return headers;
+			}
 
-		var options = {};
+			var options = {};
 
-		options.method    = 'GET';
-		options.strictSSL = false;
-		options.jar       = request.jar();
-		options.gzip      = true;
-		options.headers   = getDefaultHeaders();
+			options.method    = 'GET';
+			options.strictSSL = false;
+			options.gzip      = true;
+			options.headers   = getDefaultHeaders();
 
-		return options;
-	}
+			return options;
+		}
 
-	function makeRequest(options) {
 		return new Promise(function(resolve, reject) {
+			var request  = require('request');
 
-			var requestOptions = {};
-			extend(requestOptions, getDefaultRequestOptions(), options);
+			var opts = {};
+			extend(true, opts, getDefaultOptions(), options);
 
-			console.log(requestOptions.method, requestOptions.url);
+			//console.log(opts);
 
-			request(requestOptions, function (error, response, body) {
+			request(opts, function(error, response, body) {
 
 				try {
-
 					if (error)
 						throw error;
 
-					if (response.statusCode != 200) {
+					if (response.statusCode < 200 || response.statusCode > 299) {
 						console.log(response.body);
-						throw new Error(sprintf('Invalid status code %d', response.statusCode));
-
+						throw new Error('The request returned an error: ' + response.statusCode + ' ' + response.statusMessage);
 					}
 
-					if (response.headers['content-type'].match(/application\/json/)) {
-						resolve(JSON.parse(response.body));
-					}
-					else {
-						resolve(response.body.toString());
-					}
+					resolve(response);
 				}
 				catch (error) {
 					reject(error);
 				}
 
 			});
+
 		});
-
 	}
 
+	function requestJSON(options) {
+		return new Promise(function(resolve, reject) {
 
-	function getAccountsOverview() {
+			function getDefaultOptions() {
+				return {
+					headers: {
+						'Accept': 'application/json',
+						'Content-Type': 'application/json'
+					}
+				};
 
-		/*
+			}
 
-		GET /_mobile/account/overview HTTP/1.1
-		Host: www.avanza.se
-		Connection: Keep-Alive
-		Accept-Encoding: gzip
-		User-Agent: Avanza/se.avanzabank.androidapplikation (3.8.0 (541); Android 6.0.1)
-		X-SecurityToken: xxx (?)
-		X-AuthenticationSession: xxx
+			var opts = {};
+			extend(true, opts, getDefaultOptions(), options);
 
-
-		{
-			"accounts": [{
-				"accountType": "AktieFondkonto",
-				"interestRate": 0.00,
-				"depositable": true,
-				"active": true,
-				"name": "Depå",
-				"accountId": "1367341",
-				"performance": -887156.7000000002,
-				"totalBalance": 655.28,
-				"tradable": true,
-				"accountPartlyOwned": false,
-				"totalBalanceDue": 0.00,
-				"ownCapital": 7188670.76,
-				"buyingPower": 655.26,
-				"totalProfitPercent": 122.66,
-				"totalProfit": 3959726.64,
-				"performancePercent": -10.943884889501987,
-				"attorney": false
-			}, {
-				"accountType": "SparkontoPlus",
-				"interestRate": 0.15,
-				"depositable": true,
-				"active": true,
-				"name": "Konto",
-				"accountId": "6878232",
-				"performance": 711.0200000004843,
-				"totalBalance": 4767095.14,
-				"tradable": false,
-				"accountPartlyOwned": false,
-				"totalBalanceDue": 0.00,
-				"ownCapital": 4767314.31,
-				"buyingPower": 0.00,
-				"totalProfitPercent": 0.00,
-				"totalProfit": 0.00,
-				"performancePercent": 0.012431019689795875,
-				"sparkontoPlusType": "Klarna",
-				"attorney": false
-			}],
-			"numberOfOrders": 2,
-			"numberOfDeals": 0,
-			"totalPerformancePercent": -5.234317269080224,
-			"totalBalance": 4795728.24,
-			"totalOwnCapital": 15098070.09,
-			"totalBuyingPower": 28633.08,
-			"numberOfTransfers": 0,
-			"numberOfIntradayTransfers": 0,
-			"totalPerformance": -835449.1599999983
-		}
-		*/
-
-		return getJSON(sprintf('https://www.avanza.se/_mobile/account/overview'));
+			request(opts).then(function(response) {
+				try {
+					resolve(JSON.parse(response.body));
+				}
+				catch(error) {
+					reject(error);
+				}
+			})
+			.catch(function(error) {
+				reject(error);
+			});
+		});
 	}
+
 
 	this.getAccounts = function getAccounts() {
 
-		/*
-		[{
-			"name": "Depå",
-			"id": "1367341",
-			"type": "AktieFondkonto",
-			"totalBalance": 655.28,
-			"ownCapital": 7066321.56,
-			"buyingPower": 655.26
-		}]
-		*/
-
-		return makeRequest({
+		return requestJSON({
 			method: 'GET',
 			url: sprintf('https://www.avanza.se/_mobile/account/list?onlyTradable=false')
 		});
 	}
 
 
-	function getJSON(url) {
-		return makeRequest({
-			url: url,
-			method: 'GET'
-		});
-		return new Promise(function(resolve, reject) {
-			var options = getDefaultRequestOptions();
-
-			options.method = 'GET';
-			options.url    = url;
-			options.headers['X-AuthenticationSession'] = _session.authenticationSession;
-
-			console.log(options.url);
-			request(options, function (error, response, body) {
-
-				try {
-
-					if (error)
-						throw error;
-
-					if (response.statusCode != 200) {
-						throw new Error(sprintf('Invalid status code %d', response.statusCode));
-
-					}
-
-					// Convert to JSON
-					var json = JSON.parse(response.body);
-
-					resolve(json);
-
-				}
-				catch (error) {
-					reject(error);
-				}
-
-			});
-		});
-	}
-
 
 	this.deleteOrder = function deleteOrder(accountId, orderbookId) {
-		return makeRequest({
+		return requestJSON({
 			method: 'DELETE',
 			url: sprintf('https://www.avanza.se/_api/order?accountId=%s&orderId=%s', accountId, orderbookId)
 		});
 	}
 
 	this.getOrders = function getOrders() {
-		return makeRequest({
+		return requestJSON({
 			method: 'GET',
 			url: sprintf('https://www.avanza.se/_mobile/account/dealsandorders')
 		});
 	}
 
-	function getStock(id) {
-		return getJSON(sprintf('https://www.avanza.se/_mobile/market/stock/%s', id));
-	}
 
 	this.buy = function buy(accountId, orderbookId, volume) {
 		return new Promise(function(resolve, reject) {
 
 			Promise.resolve().then(function() {
-				return getJSON(sprintf('https://www.avanza.se/_mobile/order?accountId=%s&orderbookId=%s', accountId, orderbookId));
+				return requestJSON({
+					method: 'GET',
+					url: sprintf('https://www.avanza.se/_mobile/order?accountId=%s&orderbookId=%s', accountId, orderbookId)
+				});
 			})
 
 			.then(function(json) {
@@ -249,7 +154,11 @@ var Module = module.exports = function(credentials) {
 					if (payload.volume * payload.price > json.account.buyingPower)
 						throw new Error(sprintf('Missing buying power'));
 
-					return postJSON('https://www.avanza.se/_api/order', payload);
+					return requestJSON( {
+						method: 'POST',
+						url: 'https://www.avanza.se/_api/order',
+						body: JSON.stringify(payload)
+					});
 				}
 				catch (error) {
 					reject(error);
@@ -271,7 +180,7 @@ var Module = module.exports = function(credentials) {
 		return new Promise(function(resolve, reject) {
 
 			Promise.resolve().then(function() {
-				return getJSON(session, sprintf('https://www.avanza.se/_mobile/order?accountId=%s&orderbookId=%s', accountId, orderbookId));
+				return getJSON(sprintf('https://www.avanza.se/_mobile/order?accountId=%s&orderbookId=%s', accountId, orderbookId));
 
 			})
 
@@ -314,93 +223,13 @@ var Module = module.exports = function(credentials) {
 
 	this.getPositions = function getPositions(accountId) {
 
-		/*
-
-		{
-			"accountName": "Depå",
-			"accountType": "AktieFondkonto",
-			"depositable": true,
-			"accountId": "1367341",
-			"instrumentPositions": [{
-				"instrumentType": "STOCK",
-				"positions": [{
-					"value": 7096253.60,
-					"volume": 305873,
-					"profit": 3867964.74,
-					"averageAcquiredPrice": 10.55434400,
-					"profitPercent": 119.81,
-					"acquiredValue": 3228288.86231200,
-					"currency": "SEK",
-					"name": "Phase Holographic",
-					"orderbookId": "455636",
-					"lastPrice": 23.20,
-					"lastPriceUpdated": "2017-02-10T10:47:09.000+0100",
-					"change": -0.40,
-					"changePercent": -1.69,
-					"tradable": true,
-					"flagCode": "SE"
-				}],
-				"totalValue": 7096253.6000,
-				"totalProfitValue": 3867964.74,
-				"totalProfitPercent": 119.81,
-				"todaysProfitPercent": -1.69
-			}],
-			"totalBalance": 655.28,
-			"totalProfitPercent": 119.81,
-			"totalOwnCapital": 7096908.86,
-			"totalBuyingPower": 655.26,
-			"totalProfit": 3867964.74
-		}
-
-		*/
-
-		return getJSON(sprintf('https://www.avanza.se/_mobile/account/%s/positions', accountId));
-
-	}
-
-	function postJSON(url, payload) {
-		return new Promise(function(resolve, reject) {
-
-			try {
-				var options = getDefaultRequestOptions();
-
-				options.method = 'POST';
-				options.url    = url;
-				options.body   = JSON.stringify(payload);
-
-				options.headers['Accept']                  = 'application/json';
-				options.headers['Content-Type']            = 'application/json; charset=UTF-8';
-				options.headers['X-AuthenticationSession'] = _session.authenticationSession;
-
-				request(options, function (error, response, body) {
-
-					try {
-						if (error)
-							throw error;
-
-						if (response.statusCode != 200) {
-							console.log(response.body);
-							throw new Error(sprintf('Invalid status code %d', response.statusCode));
-
-						}
-
-						// Convert to JSON
-						var json = JSON.parse(response.body);
-
-						resolve(json);
-					}
-					catch (error) {
-						reject(error);
-					}
-
-				});
-
-			}
-			catch (error) {
-				reject(error);
-			}
+		return requestJSON({
+			method: 'GET',
+			url: sprintf('https://www.avanza.se/_mobile/account/%s/positions', accountId)
 		});
+
 	}
+
 
 
 	this.login = function login() {
@@ -416,43 +245,34 @@ var Module = module.exports = function(credentials) {
 					payload.username = username;
 					payload.password = password;
 
-					var options = getDefaultRequestOptions();
+					var options = {};
 
 					options.method = 'POST';
 					options.url    = sprintf('https://www.avanza.se/_api/authentication/sessions/username');
 					options.body   = JSON.stringify(payload);
 
+					options.headers = {};
 					options.headers['Accept']        = 'application/json';
 					options.headers['Content-Type']  = 'application/json; charset=UTF-8';
 
-					request(options, function (error, response, body) {
+					request(options).then(function(response) {
 
-						try {
-							if (error)
-								throw error;
+						var json = JSON.parse(response.body);
 
-							if (response.statusCode != 200)
-								throw new Error(sprintf('Invalid status code %d', response.statusCode));
+						_session = {
+							authenticationSession: json.authenticationSession,
+							customerId: json.customerId,
+							username: username,
+							securityToken: response.headers['x-securitytoken'],
+							pushSubscriptionId: json.pushSubscriptionId
+						};
 
-							// Convert to JSON
-							var json = JSON.parse(response.body);
+						resolve(_session);
+					})
+					.catch(function(error) {
+						reject(error);
 
-							_session = {
-								authenticationSession: json.authenticationSession,
-								customerId: json.customerId,
-								username: username,
-								securityToken: response.headers['x-securitytoken'],
-								pushSubscriptionId: json.pushSubscriptionId
-							};
-
-							resolve(_session);
-
-						}
-						catch (error) {
-							reject(error);
-						}
-
-					});
+					})
 
 				}
 				catch (error) {
@@ -468,7 +288,7 @@ var Module = module.exports = function(credentials) {
 			function initialize() {
 
 				return new Promise(function(resolve, reject) {
-					var options = getDefaultRequestOptions();
+					var options = {};
 
 					if (!isString(ssid))
 						throw new Error('Must specify personal number');
@@ -480,22 +300,12 @@ var Module = module.exports = function(credentials) {
 					options.url       = 'https://www.avanza.se/_api/authentication/sessions/bankid';
 					options.body      = JSON.stringify(payload);
 
+					options.headers = {};
 					options.headers['Accept']        = 'application/json';
 					options.headers['Content-Type']  = 'application/json; charset=UTF-8';
 
-					request(options, function (error, response, body) {
-
+					requestJSON(options).then(function(json) {
 						try {
-
-							if (error)
-								throw error;
-
-							if (response.statusCode != 202)
-								throw new Error(sprintf('Invalid status code %d.', response.statusCode));
-
-							// Convert to JSON
-							var json = JSON.parse(response.body);
-
 							if (!json.transactionId)
 								throw new Error('No transactionID present in response.');
 
@@ -507,6 +317,9 @@ var Module = module.exports = function(credentials) {
 							reject(error);
 						}
 
+					})
+					.catch(function(error) {
+						reject(error);
 					});
 				});
 
@@ -514,24 +327,13 @@ var Module = module.exports = function(credentials) {
 
 			function poll(session) {
 				return new Promise(function(resolve, reject) {
-					var options = getDefaultRequestOptions();
+					var options = {};
 
 					options.method = 'GET';
 					options.url    = sprintf('https://www.avanza.se/_api/authentication/sessions/bankid/%s', session.transactionId);
 
-					request(options, function (error, response, body) {
-
+					requestJSON(options).then(function(json) {
 						try {
-
-							if (error)
-								throw error;
-
-							if (response.statusCode != 200)
-								throw new Error(sprintf('Invalid status code %d', response.statusCode));
-
-							// Convert to JSON
-							var json = JSON.parse(response.body);
-
 							if (!json.transactionId)
 								throw new Error('No transactionID');
 
@@ -593,6 +395,9 @@ var Module = module.exports = function(credentials) {
 							reject(error);
 						}
 
+					})
+					.catch(function(error) {
+						reject(error);
 					});
 				});
 
@@ -601,21 +406,14 @@ var Module = module.exports = function(credentials) {
 
 			function finalize(session) {
 				return new Promise(function(resolve, reject) {
-					var options = getDefaultRequestOptions();
 
 					options.method = 'GET';
 					options.url    = sprintf('https://www.avanza.se%s?maxInactiveMinutes=240', session.loginPath);
 
-					request(options, function (error, response, body) {
+					request(options).then(function(response) {
+
 
 						try {
-							if (error)
-								throw error;
-
-							if (response.statusCode != 200)
-								throw new Error(sprintf('Invalid status code %d', response.statusCode));
-
-							// Convert to JSON
 							var json = JSON.parse(response.body);
 
 							resolve({
@@ -627,10 +425,13 @@ var Module = module.exports = function(credentials) {
 							});
 
 						}
-						catch (error) {
+						catch(error) {
 							reject(error);
-						}
 
+						}
+					})
+					.catch(function(error) {
+						reject(error);
 					});
 				});
 

@@ -17,8 +17,11 @@
   },
   "homepage": "https://github.com/meg768/fisken#readme",
   "dependencies": {
+    "avanza": "^0.2.0",
+    "querystring": "^0.2.0",
     "request": "^2.79.0",
     "text-table": "^0.2.0",
+    "ws": "^2.0.3",
     "yargs": "^6.6.0",
     "yow": "^1.0.45"
   }

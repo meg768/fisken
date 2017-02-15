@@ -35,7 +35,7 @@ var Module = new function() {
 			_argv = argv;
 
 			_avanza.login().then(function() {
-				return _avanza.sell(argv.account, argv.instrument);
+				return _avanza.sell(argv.account, argv.instrument, argv.volume);
 			})
 			.then(function(json) {
 				console.log('OK');

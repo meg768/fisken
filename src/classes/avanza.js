@@ -13,13 +13,11 @@ var isString    = require('yow/is').isString;
 
 var Socket = function() {
 
-	var _this           = this;
-	var _ws             = new WebSocket('wss://www.avanza.se/_push/cometd');
-	var _id             = 1;
-	var _clientId       = undefined;
-	var _events         = new EventEmitter();
-	var _subscriptionId = undefined; //options.subscriptionId;
-	var _initialized    = false;
+	var _this      = this;
+	var _ws        = undefined;
+	var _id        = 1;
+	var _clientId  = undefined;
+	var _events    = new EventEmitter();
 
 	this.on = function on(event, callback) {
 		return _events.on(event, callback);
@@ -33,8 +31,8 @@ var Socket = function() {
 		ws.send(JSON.stringify([message]));
 	}
 
-	function listen() {
-		_ws.on('message', function(data, flags) {
+	function listen(ws) {
+		ws.on('message', function(data, flags) {
 
 			var response = JSON.parse(data);
 
@@ -46,7 +44,6 @@ var Socket = function() {
 			}
 
 			else if (response.channel == '/meta/handshake') {
-				console.log('Meta/Handshake received. Sending Meta/Connect...')
 				_clientId = response.clientId;
 
 				var reply = {};
@@ -57,7 +54,7 @@ var Socket = function() {
 				reply.connectionType = 'websocket';
 				reply.id             = _id++;
 
-				send(_ws, reply);
+				send(ws, reply);
 			}
 
 			else if (response.channel == '/meta/connect') {
@@ -69,7 +66,7 @@ var Socket = function() {
 					reply.connectionType = 'websocket';
 					reply.id             = _id++;
 
-					send(_ws, reply);
+					send(ws, reply);
 
 				}
 				setTimeout(sendReply, 100);
@@ -84,26 +81,15 @@ var Socket = function() {
 
 		});
 
-		_ws.on('error', function(error) {
+		ws.on('error', function(error) {
 			console.log('WebSocket error', error);
+			_events.emit('error', error);
 		});
-	}
-
-
-	this.terminate = function() {
-		_ws.close();
-
-//		_ws             = new WebSocket('wss://www.avanza.se/_push/cometd');
-		_id             = 1;
-		_clientId       = undefined;
-		_subscriptionId = undefined;
-		_initialized    = false;
 	}
 
 	this.initialize = function(subscriptionId) {
 
-listen();
-		function waitForHandshakeComplete() {
+		function waitForHandshakeComplete(ws) {
 
 			return new Promise(function(resolve, reject) {
 
@@ -126,14 +112,14 @@ listen();
 		};
 
 
-		function waitForHandshake() {
+		function waitForHandshake(ws) {
 
 			return new Promise(function(resolve, reject) {
 
 				var iterations = 3;
 
 				function loop() {
-					if (_ws.readyState === _ws.OPEN) {
+					if (ws.readyState === ws.OPEN) {
 						var reply = {};
 						reply.ext                      = {};
 						reply.ext.subscriptionId       = subscriptionId;
@@ -142,12 +128,12 @@ listen();
 						reply.id                       = _id++;
 						reply.version                  = '1.0';
 
-						send(_ws, reply);
+						send(ws, reply);
 						resolve();
 					}
 					else {
 						if (iterations-- <= 0)
-							reject(new Error('Socket timed out. The socket did not open.'))
+							reject(new Error('Socket timed out. The socket did not open.'));
 						else
 							setTimeout(loop, 500);
 					}
@@ -157,11 +143,9 @@ listen();
 				loop();
 
 			});
-
-
 		}
 
-		if (_initialized)
+		if (_ws != undefined)
 			return Promise.resolve();
 
 		if (subscriptionId == undefined)
@@ -169,12 +153,18 @@ listen();
 
 		return new Promise(function(resolve, reject) {
 
-			waitForHandshake().then(function() {
-				return waitForHandshakeComplete();
+			var ws = new WebSocket('wss://www.avanza.se/_push/cometd');
+
+			listen(ws);
+
+			waitForHandshake(ws).then(function() {
+				return waitForHandshakeComplete(ws);
 			})
+
 			.then(function() {
 
-				_initialized = true;
+				// Save WebSocket connection
+				_ws = ws;
 
 				// Send connect
 				_events.emit('connect');
@@ -182,6 +172,8 @@ listen();
 				resolve();
 			})
 			.catch(function(error) {
+				console.log(error);
+				ws.close();
 				reject(error);
 			});
 
@@ -189,10 +181,17 @@ listen();
 
 	}
 
+	this.terminate = function() {
+		if (_ws != undefined)
+			_ws.close();
+
+		_ws = undefined;
+		_clientId = undefined;
+	}
 
 	this.subscribe = function (id, channels) {
 
-		if (!_initialized)
+		if (_ws == undefined)
 			throw new Error('The socket is not yet initialized. You must initialize() before subscribing to channels.');
 
 		if (!isString(_clientId))
@@ -264,8 +263,6 @@ var Module = module.exports = function(credentials) {
 			var opts = {};
 			extend(true, opts, getDefaultOptions(), options);
 
-			//console.log(opts);
-
 			request(opts, function(error, response, body) {
 
 				try {
@@ -303,8 +300,6 @@ var Module = module.exports = function(credentials) {
 
 			var opts = {};
 			extend(true, opts, getDefaultOptions(), options);
-
-			//console.log(options.url);
 
 			request(opts).then(function(response) {
 				try {
@@ -397,7 +392,7 @@ var Module = module.exports = function(credentials) {
 	}
 
 
-	this.sell = function sell(accountId, orderbookId) {
+	this.sell = function sell(accountId, orderbookId, volume) {
 		return new Promise(function(resolve, reject) {
 
 			Promise.resolve().then(function() {
@@ -418,13 +413,14 @@ var Module = module.exports = function(credentials) {
 					payload.orderType   = 'SELL';
 					payload.orderbookId = orderbookId.toString();
 					payload.price       = json.orderbook.buyPrice != undefined ? json.orderbook.buyPrice : json.orderbook.lastPrice;
-					payload.volume      = json.orderbook.positionVolume;
+					payload.volume      = volume != undefined ? volume : json.orderbook.positionVolume;
 					payload.validUntil  = sprintf('%04d-%02d-%02d', now.getFullYear(), now.getMonth() + 1, now.getDate());
 
 					if (json.orderbook.positionVolume <= 0)
 						throw new Error(sprintf('No position in orderbookId %s', orderbookId));
 
-					//return Promise.resolve(payload);
+					console.log(JSON.stringify(json, null, '    '));
+					return Promise.resolve(payload);
 
 					return requestJSON( {
 						method: 'POST',
@@ -450,20 +446,52 @@ var Module = module.exports = function(credentials) {
 			})
 		});
 	}
+/*
+	this.uniqueSearch = function(name) {
 
-	this.search = function search(query, type) {
+
+		return new Promise(function(resolve, reject) {
+
+			search(name).then(function(json) {
+				if (json.totalNumberOfHits == 0)
+					return reject(new Error(sprintf('No match for "%s"', name)));
+				if (json.totalNumberOfHits == 0)
+					return reject(new Error(sprintf('Multiple matches for "%s"', name)));
+
+				resolve()
+			})
+			Promise.resolve().then(function() {
+
+				var options = {};
+				options.method = 'GET';
+				options.url = sprintf('https://www.avanza.se/_mobile/market/search?%s', querystring.stringify({limit:1, query:name}));
+
+				requestJSON(options);
+
+			})
+			.then(function() {
+
+			});
+
+		});
+	}
+
+	*/
+	this.search = function search(query, type, limit) {
+
+		if (limit == undefined)
+			limit = 10;
 
 		var options = {};
 		options.method = 'GET';
 
 		if (type)
-			options.url = sprintf('https://www.avanza.se/_mobile/market/search/%s?%s', type.toUpperCase(), querystring.stringify({limit:10, query:query}))
+			options.url = sprintf('https://www.avanza.se/_mobile/market/search/%s?%s', type.toUpperCase(), querystring.stringify({limit:limit, query:query}))
 		else
-			options.url = sprintf('https://www.avanza.se/_mobile/market/search?%s', querystring.stringify({limit:10, query:query}))
+			options.url = sprintf('https://www.avanza.se/_mobile/market/search?%s', querystring.stringify({limit:limit, query:query}))
 
 		return requestJSON(options);
 	}
-
 
 	this.getPositions = function getPositions(accountId) {
 
@@ -473,7 +501,6 @@ var Module = module.exports = function(credentials) {
 		});
 
 	}
-
 
 	this.login = function login() {
 		function loginWithUserName(username, password) {
@@ -513,8 +540,6 @@ var Module = module.exports = function(credentials) {
 						// Bind the subscription ID to the initialize() method
 						_this.socket.initialize = _this.socket.initialize.bind(_this.socket, _session.pushSubscriptionId);
 
-						//console.log('Session', _session);
-						//_this.socket.initialize(_session.pushSubscriptionId);
 
 						resolve(_session);
 					})
@@ -669,6 +694,7 @@ var Module = module.exports = function(credentials) {
 								pushSubscriptionId: json.pushSubscriptionId
 							});
 
+
 						}
 						catch(error) {
 							reject(error);
@@ -693,6 +719,10 @@ var Module = module.exports = function(credentials) {
 				})
 				.then(function(json) {
 					_session = json;
+
+					// Bind the subscription ID to the initialize() method
+					_this.socket.initialize = _this.socket.initialize.bind(_this.socket, _session.pushSubscriptionId);
+
 					resolve(json)
 				})
 				.catch(function(error) {

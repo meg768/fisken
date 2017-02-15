@@ -44,7 +44,6 @@ var Module = new function() {
 				});
 
 				avanza.socket.on('quotes', function(quote) {
-					avanza.socket.terminate();
 					console.log('quotes', quote);
 				});
 

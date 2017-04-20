@@ -38,7 +38,6 @@ var Module = new function() {
 				return _avanza.sell(argv.account, argv.instrument, argv.volume);
 			})
 			.then(function(json) {
-				console.log('OK');
 				console.log(JSON.stringify(json, null, '    '));
 			})
 			.catch(function(error) {

@@ -2,13 +2,14 @@ var sprintf  = require('yow/sprintf');
 var isArray  = require('yow/is').isArray;
 var Avanza   = require('../js/avanza.js');
 
+
 var Module = new function() {
 
 	function defineArgs(args) {
 
 		args.help('help').alias('help', 'h');
 
-		args.usage('Usage: $0 socket [query] <options>');
+		args.usage('Usage: $0 overview [id] <options>');
 
 		args.option('debug',      {alias:'d', describe:'debug mode', default:false});
 
@@ -25,30 +26,20 @@ var Module = new function() {
 	function run(argv) {
 
 		try {
-			var avanza = new Avanza({username: process.env.AVANZA_USERNAME, password:process.env.AVANZA_PASSWORD});
+			var avanza = new Avanza();
 
 			avanza.login().then(function() {
-				return Promise.resolve();
+				var options = {};
+				options.method = 'GET';
+				options.url = sprintf('https://www.avanza.se/_mobile/account/%s/overview', argv.id);
+				console.log(options);
+				return avanza.request(options);
 			})
-
-			.then(function() {
-
-				avanza.socket.initialize();
-
-				avanza.socket.on('connect', function() {
-					console.log('Subscribing...')
-					avanza.socket.subscribe('19002', ['quotes']);
-//					avanza.socket.subscribe('5364', ['quotes']);
-
-				});
-
-				avanza.socket.on('quotes', function(quote) {
-					console.log('quotes', quote);
-				});
-
+			.then(function(json) {
+				console.log(json);
 			})
 			.catch(function(error) {
-				console.log(error);
+				console.log(error.message);
 
 			});
 		}
@@ -57,8 +48,8 @@ var Module = new function() {
 		}
 	}
 
-	module.exports.command  = 'socket';
-	module.exports.describe = 'Socket';
+	module.exports.command  = 'overview <id>';
+	module.exports.describe = 'Overview';
 	module.exports.builder  = defineArgs;
 	module.exports.handler  = run;
 

@@ -223,6 +223,10 @@ var Module = module.exports = function(credentials) {
 	var _this = this;
 	var _session = {};
 
+	if (credentials == undefined) {
+		credentials = {username: process.env.AVANZA_USERNAME, password:process.env.AVANZA_PASSWORD};
+	}
+
 	this.socket = new Socket();
 
 	function request(options) {
@@ -314,6 +318,8 @@ var Module = module.exports = function(credentials) {
 			});
 		});
 	}
+
+	this.request = requestJSON;
 
 
 	this.getAccounts = function getAccounts() {
@@ -613,15 +619,15 @@ var Module = module.exports = function(credentials) {
 
 									/*
 									{
-										"name": "Magnus",
+										"name": "XXX",
 										"logins": [{
-											"customerId": "155165",
-											"username": "1367341",
+											"customerId": "XXX",
+											"username": "XXX",
 											"accounts": [{
-												"accountName": "Sara",
+												"accountName": "XXX",
 												"accountType": "Kapitalförsäkring Barn"
 											}, {
-												"accountName": "Depå",
+												"accountName": "XXX",
 												"accountType": "Aktie- & fondkonto"
 											}],
 											"loginPath": "/_api/authentication/sessions/bankid/c48e2067-0580-4c3e-ab03-38eaea87bbed/155165"

@@ -1,6 +1,5 @@
 var sprintf  = require('yow/sprintf');
-var Avanza   = require('../classes/avanza.js');
-var config   = require('../../config.js');
+var Avanza   = require('../js/avanza.js');
 
 var Module = new function() {
 
@@ -15,7 +14,7 @@ var Module = new function() {
 	function run(argv) {
 
 		try {
-			var avanza = new Avanza(config.credentials);
+			var avanza = new Avanza({username: process.env.AVANZA_USERNAME, password:process.env.AVANZA_PASSWORD});
 
 			avanza.login().then(function() {
 
@@ -32,17 +31,17 @@ var Module = new function() {
 						var list = [];
 						var header = [];
 
-						header.push(['ID', 'Name', 'Volume', 'Value', 'Ccy', 'Profit (%)', 'Type']);
+						header.push(['ID', 'Name', 'Volume', 'Value', 'Ccy', 'Profit', 'Profit (%)', 'Type']);
 
 						positions.instrumentPositions.forEach(function(instrumentPosition) {
 							instrumentPosition.positions.forEach(function(position) {
-								//console.log(position.name);
-								list.push([position.orderbookId, position.name, Math.round(position.volume), Math.round(position.value), position.currency, sprintf('%.1f', position.profitPercent), instrumentPosition.instrumentType]);
+								console.log(position);
+								list.push([position.orderbookId, position.name, Math.round(position.volume), Math.round(position.value), position.currency, Math.round(position.profit), sprintf('%.1f', position.profitPercent), instrumentPosition.instrumentType]);
 
 							});
 						});
 
-						console.log(table(header.concat(list), {align:['l', 'l', 'r', 'r', 'l', 'r', 'l']}));
+						console.log(table(header.concat(list), {align:['l', 'l', 'r', 'r', 'l', 'r', 'r', 'l']}));
 
 					}
 				})

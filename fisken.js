@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+require('dotenv').config();
+
 var sprintf = require('yow/sprintf');
 
 var App = function() {
@@ -20,6 +22,8 @@ var App = function() {
 			args.command(require('./src/commands/search.js'));
 			args.command(require('./src/commands/socket.js'));
 			args.command(require('./src/commands/sell.js'));
+			args.command(require('./src/commands/market.js'));
+			args.command(require('./src/commands/overview.js'));
 
 /*
 			args.command(require('./src/commands/on.js'));

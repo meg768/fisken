@@ -1,6 +1,5 @@
 var sprintf  = require('yow/sprintf');
-var Avanza   = require('../classes/avanza.js');
-var config   = require('../../config.js');
+var Avanza   = require('../js/avanza.js');
 
 var Module = new function() {
 
@@ -28,7 +27,7 @@ var Module = new function() {
 	function run(argv) {
 
 		try {
-			_avanza = new Avanza(config.credentials);
+			_avanza = new Avanza({username: process.env.AVANZA_USERNAME, password:process.env.AVANZA_PASSWORD});
 			_argv = argv;
 
 			_avanza.login().then(function() {

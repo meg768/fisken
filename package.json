@@ -18,6 +18,7 @@
   "homepage": "https://github.com/meg768/fisken#readme",
   "dependencies": {
     "avanza": "^0.2.0",
+    "dotenv": "^4.0.0",
     "querystring": "^0.2.0",
     "request": "^2.79.0",
     "text-table": "^0.2.0",

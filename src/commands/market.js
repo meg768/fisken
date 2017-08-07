@@ -32,7 +32,7 @@ var Module = new function() {
 			avanza.login().then(function() {
 				var options = {};
 				options.method = 'GET';
-				options.url = sprintf('https://www.avanza.se/_mobile/market/%s/%s', argv.type, argv.id);
+				options.path   = sprintf('_mobile/market/%s/%s', argv.type, argv.id);
 				console.log(options);
 				return avanza.request(options);
 			})
@@ -40,7 +40,7 @@ var Module = new function() {
 				console.log(json);
 			})
 			.catch(function(error) {
-				console.log(error.message);
+				console.log(error);
 
 			});
 		}

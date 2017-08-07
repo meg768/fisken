@@ -24,6 +24,7 @@ var App = function() {
 			args.command(require('./src/commands/sell.js'));
 			args.command(require('./src/commands/market.js'));
 			args.command(require('./src/commands/overview.js'));
+			args.command(require('./src/commands/matrix.js'));
 
 /*
 			args.command(require('./src/commands/on.js'));

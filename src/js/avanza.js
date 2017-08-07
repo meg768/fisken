@@ -4,6 +4,7 @@ var WebSocket    = require('ws');
 var util         = require('util');
 var querystring  = require('querystring');
 var EventEmitter = require('events');
+var Path         = require('path');
 
 var sprintf     = require('yow/sprintf');
 var extend      = require('yow/extend');
@@ -19,11 +20,11 @@ var Socket = function() {
 	var _clientId  = undefined;
 	var _events    = new EventEmitter();
 
-	this.on = function on(event, callback) {
+	_this.on = function on(event, callback) {
 		return _events.on(event, callback);
 	}
 
-	this.once = function once(event, callback) {
+	_this.once = function once(event, callback) {
 		return _events.on(event, callback);
 	}
 
@@ -87,7 +88,7 @@ var Socket = function() {
 		});
 	}
 
-	this.initialize = function(subscriptionId) {
+	_this.initialize = function(subscriptionId) {
 
 		function waitForHandshakeComplete(ws) {
 
@@ -181,7 +182,7 @@ var Socket = function() {
 
 	}
 
-	this.terminate = function() {
+	_this.terminate = function() {
 		if (_ws != undefined)
 			_ws.close();
 
@@ -189,7 +190,7 @@ var Socket = function() {
 		_clientId = undefined;
 	}
 
-	this.subscribe = function (id, channels) {
+	_this.subscribe = function (id, channels) {
 
 		if (_ws == undefined)
 			throw new Error('The socket is not yet initialized. You must initialize() before subscribing to channels.');
@@ -220,16 +221,20 @@ var Socket = function() {
 
 var Module = module.exports = function(credentials) {
 
-	var _this = this;
-	var _session = {};
-
 	if (credentials == undefined) {
 		credentials = {username: process.env.AVANZA_USERNAME, password:process.env.AVANZA_PASSWORD};
 	}
 
-	this.socket = new Socket();
+	var _this = this;
+	var _host = 'www.avanza.se';
+	var _session = {};
 
-	function request(options) {
+
+	_this.socket = new Socket();
+
+
+
+	_this.request = function(options) {
 
 		function getDefaultOptions() {
 
@@ -240,7 +245,7 @@ var Module = module.exports = function(credentials) {
 				headers['Connection']       = 'Keep-Alive';
 				headers['Accept-Encoding']  = 'gzip';
 				headers['User-Agent']       = 'Avanza/se.avanzabank.androidapplikation (3.8.0 (541); Android 6.0.1)';
-				headers['Host']             = 'www.avanza.se';
+				headers['Host']             = _host;
 
 				if (isString(_session.authenticationSession))
 					headers['X-AuthenticationSession'] = _session.authenticationSession;
@@ -251,11 +256,13 @@ var Module = module.exports = function(credentials) {
 				return headers;
 			}
 
+
 			var options = {};
 
 			options.method    = 'GET';
 			options.strictSSL = false;
 			options.gzip      = true;
+			options.json      = true;
 			options.headers   = getDefaultHeaders();
 
 			return options;
@@ -264,10 +271,18 @@ var Module = module.exports = function(credentials) {
 		return new Promise(function(resolve, reject) {
 			var request  = require('request');
 
-			var opts = {};
-			extend(true, opts, getDefaultOptions(), options);
+			var opts = getDefaultOptions();
 
-			request(opts, function(error, response, body) {
+			if (options.method != undefined)
+				opts.method = options.method;
+
+			if (options.url != undefined)
+				opts.url = options.url;
+
+			if (options.path != undefined)
+				opts.url = sprintf('https://%s', Path.join(_host, options.path));
+
+			request(opts, function(error, response) {
 
 				try {
 					if (error)
@@ -278,7 +293,7 @@ var Module = module.exports = function(credentials) {
 						throw new Error('The request returned an error: ' + response.statusCode + ' ' + response.statusMessage);
 					}
 
-					resolve(response);
+					resolve(response.body);
 				}
 				catch (error) {
 					reject(error);
@@ -289,42 +304,12 @@ var Module = module.exports = function(credentials) {
 		});
 	}
 
-	function requestJSON(options) {
-		return new Promise(function(resolve, reject) {
-
-			function getDefaultOptions() {
-				return {
-					headers: {
-						'Accept': 'application/json',
-						'Content-Type': 'application/json'
-					}
-				};
-
-			}
-
-			var opts = {};
-			extend(true, opts, getDefaultOptions(), options);
-
-			request(opts).then(function(response) {
-				try {
-					resolve(JSON.parse(response.body));
-				}
-				catch(error) {
-					reject(error);
-				}
-			})
-			.catch(function(error) {
-				reject(error);
-			});
-		});
-	}
-
-	this.request = requestJSON;
 
 
-	this.getAccounts = function getAccounts() {
 
-		return requestJSON({
+	_this.getAccounts = function getAccounts() {
+
+		return _this.request({
 			method: 'GET',
 			url: sprintf('https://www.avanza.se/_mobile/account/list?onlyTradable=false')
 		});
@@ -332,26 +317,26 @@ var Module = module.exports = function(credentials) {
 
 
 
-	this.deleteOrder = function deleteOrder(accountId, orderbookId) {
-		return requestJSON({
+	_this.deleteOrder = function deleteOrder(accountId, orderbookId) {
+		return _this.request({
 			method: 'DELETE',
 			url: sprintf('https://www.avanza.se/_api/order?accountId=%s&orderId=%s', accountId, orderbookId)
 		});
 	}
 
-	this.getOrders = function getOrders() {
-		return requestJSON({
+	_this.getOrders = function getOrders() {
+		return _this.request({
 			method: 'GET',
 			url: sprintf('https://www.avanza.se/_mobile/account/dealsandorders')
 		});
 	}
 
 
-	this.buy = function buy(accountId, orderbookId, volume) {
+	_this.buy = function buy(accountId, orderbookId, volume) {
 		return new Promise(function(resolve, reject) {
 
 			Promise.resolve().then(function() {
-				return requestJSON({
+				return _this.request({
 					method: 'GET',
 					url: sprintf('https://www.avanza.se/_mobile/order?accountId=%s&orderbookId=%s', accountId, orderbookId)
 				});
@@ -376,7 +361,7 @@ var Module = module.exports = function(credentials) {
 					//console.log(JSON.stringify(payload, null, '  '));
 					//return Promise.resolve(payload);
 
-					return requestJSON( {
+					return _this.request( {
 						method: 'POST',
 						url: 'https://www.avanza.se/_api/order',
 						body: JSON.stringify(payload)
@@ -398,11 +383,11 @@ var Module = module.exports = function(credentials) {
 	}
 
 
-	this.sell = function sell(accountId, orderbookId, volume) {
+	_this.sell = function sell(accountId, orderbookId, volume) {
 		return new Promise(function(resolve, reject) {
 
 			Promise.resolve().then(function() {
-				return requestJSON({
+				return _this.request({
 					method: 'GET',
 					url: sprintf('https://www.avanza.se/_mobile/order?accountId=%s&orderbookId=%s', accountId, orderbookId)
 				});
@@ -428,7 +413,7 @@ var Module = module.exports = function(credentials) {
 					console.log(JSON.stringify(json, null, '    '));
 					return Promise.resolve(payload);
 
-					return requestJSON( {
+					return _this.request( {
 						method: 'POST',
 						url: 'https://www.avanza.se/_api/order',
 						body: JSON.stringify(payload)
@@ -452,38 +437,8 @@ var Module = module.exports = function(credentials) {
 			})
 		});
 	}
-/*
-	this.uniqueSearch = function(name) {
 
-
-		return new Promise(function(resolve, reject) {
-
-			search(name).then(function(json) {
-				if (json.totalNumberOfHits == 0)
-					return reject(new Error(sprintf('No match for "%s"', name)));
-				if (json.totalNumberOfHits == 0)
-					return reject(new Error(sprintf('Multiple matches for "%s"', name)));
-
-				resolve()
-			})
-			Promise.resolve().then(function() {
-
-				var options = {};
-				options.method = 'GET';
-				options.url = sprintf('https://www.avanza.se/_mobile/market/search?%s', querystring.stringify({limit:1, query:name}));
-
-				requestJSON(options);
-
-			})
-			.then(function() {
-
-			});
-
-		});
-	}
-
-	*/
-	this.search = function search(query, type, limit) {
+	_this.search = function search(query, type, limit) {
 
 		if (limit == undefined)
 			limit = 10;
@@ -496,23 +451,25 @@ var Module = module.exports = function(credentials) {
 		else
 			options.url = sprintf('https://www.avanza.se/_mobile/market/search?%s', querystring.stringify({limit:limit, query:query}))
 
-		return requestJSON(options);
+		return _this.request(options);
 	}
 
-	this.getPositions = function getPositions(accountId) {
+	_this.getPositions = function getPositions(accountId) {
 
-		return requestJSON({
+		return _this.request({
 			method: 'GET',
 			url: sprintf('https://www.avanza.se/_mobile/account/%s/positions', accountId)
 		});
 
 	}
 
-	this.login = function login() {
+	_this.login = function login() {
 		function loginWithUserName(username, password) {
 			return new Promise(function(resolve, reject) {
 
 				try {
+					var request = require('request');
+
 					if (!isString(username) || !isString(password))
 						throw new Error('Must specify username and password');
 
@@ -522,37 +479,32 @@ var Module = module.exports = function(credentials) {
 					payload.password = password;
 
 					var options = {};
-
 					options.method = 'POST';
 					options.url    = sprintf('https://www.avanza.se/_api/authentication/sessions/username');
-					options.body   = JSON.stringify(payload);
+					options.body   = payload;
+					options.json   = true;
 
-					options.headers = {};
-					options.headers['Accept']        = 'application/json';
-					options.headers['Content-Type']  = 'application/json; charset=UTF-8';
+					request(options, function(error, response) {
 
-					request(options).then(function(response) {
+						if (error)
+							reject(error);
+						else {
+							_session = {
+								authenticationSession: response.body.authenticationSession,
+								customerId: response.body.customerId,
+								username: username,
+								securityToken: response.headers['x-securitytoken'],
+								pushSubscriptionId: response.body.pushSubscriptionId
+							};
 
-						var json = JSON.parse(response.body);
+							// Bind the subscription ID to the initialize() method
+							_this.socket.initialize = _this.socket.initialize.bind(_this.socket, _session.pushSubscriptionId);
 
-						_session = {
-							authenticationSession: json.authenticationSession,
-							customerId: json.customerId,
-							username: username,
-							securityToken: response.headers['x-securitytoken'],
-							pushSubscriptionId: json.pushSubscriptionId
-						};
+							resolve(_session);
 
-						// Bind the subscription ID to the initialize() method
-						_this.socket.initialize = _this.socket.initialize.bind(_this.socket, _session.pushSubscriptionId);
+						}
 
-
-						resolve(_session);
-					})
-					.catch(function(error) {
-						reject(error);
-
-					})
+					});
 
 				}
 				catch (error) {
@@ -580,7 +532,7 @@ var Module = module.exports = function(credentials) {
 					options.url       = 'https://www.avanza.se/_api/authentication/sessions/bankid';
 					options.body      = JSON.stringify(payload);
 
-					requestJSON(options).then(function(json) {
+					_this.request(options).then(function(json) {
 						try {
 							if (!json.transactionId)
 								throw new Error('No transactionID present in response.');
@@ -608,7 +560,7 @@ var Module = module.exports = function(credentials) {
 					options.method = 'GET';
 					options.url    = sprintf('https://www.avanza.se/_api/authentication/sessions/bankid/%s', session.transactionId);
 
-					requestJSON(options).then(function(json) {
+					_this.request(options).then(function(json) {
 						try {
 							if (!json.transactionId)
 								throw new Error('No transactionID');

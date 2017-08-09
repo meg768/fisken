@@ -1,6 +1,6 @@
 var sprintf  = require('yow/sprintf');
 var isArray  = require('yow/is').isArray;
-var Avanza   = require('../js/avanza-x.js');
+var Avanza   = require('../js/avanza.js');
 
 
 var Module = new function() {
@@ -14,7 +14,7 @@ var Module = new function() {
 		args.usage('Usage: $0 market [id] <options>');
 
 		args.option('debug',      {alias:'d', describe:'debug mode', default:false});
-		args.option('name',      {alias:'n', describe:'name'});
+		args.option('name',       {alias:'n', describe:'name'});
 
 		args.wrap(null);
 
@@ -107,13 +107,13 @@ var Module = new function() {
 		try {
 			var avanza = _avanza = new Avanza();
 
-
+/*
 			avanza.login().then(function() {
 				return avanza.enableSubscriptions();
 			})
 			.then(function() {
 
-				avanza.subscribe('quotes', '19002', function(data) {
+				avanza.subscribe('quotes', ['19002', '5364'], function(data) {
 					console.log(data);
 				});
 
@@ -130,7 +130,7 @@ var Module = new function() {
 				console.log(error);
 
 			});
-/*
+*/
 			avanza.login().then(function() {
 				return getWatchList(argv.name);
 			})
@@ -142,7 +142,7 @@ var Module = new function() {
 				console.log(error);
 
 			});
-			*/
+
 		}
 		catch(error) {
 			console.log(error);

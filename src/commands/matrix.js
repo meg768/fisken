@@ -107,7 +107,7 @@ var Module = new function() {
 		try {
 			var avanza = _avanza = new Avanza();
 
-/*
+
 			avanza.login().then(function() {
 				return avanza.enableSubscriptions();
 			})
@@ -130,7 +130,7 @@ var Module = new function() {
 				console.log(error);
 
 			});
-*/
+/*
 			avanza.login().then(function() {
 				return getWatchList(argv.name);
 			})
@@ -142,6 +142,7 @@ var Module = new function() {
 				console.log(error);
 
 			});
+			*/
 
 		}
 		catch(error) {

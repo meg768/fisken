@@ -1,6 +1,6 @@
 var sprintf  = require('yow/sprintf');
 var isArray  = require('yow/is').isArray;
-var Avanza   = require('../js/avanza.js');
+var Avanza   = require('../js/avanza-x.js');
 
 
 var Module = new function() {
@@ -28,11 +28,7 @@ var Module = new function() {
 
 	function getPrice(id) {
 		return new Promise(function(resolve, reject) {
-			_avanza.request({
-				method: 'GET',
-				path:   sprintf('_mobile/market/index/%s', id)
-			})
-			.then(function(result) {
+			_avanza.get('_mobile/market/index/%s', id).then(function(result) {
 				resolve({name:result.name, price:result.lastPrice, change:result.changePercent});
 			})
 			.catch(function(error) {
@@ -69,11 +65,7 @@ var Module = new function() {
 	function getWatchList(name) {
 		return new Promise(function(resolve, reject) {
 			Promise.resolve().then(function() {
-				var options = {};
-				options.path   = '_mobile/usercontent/watchlist';
-				options.method = 'GET';
-
-				return _avanza.request(options);
+				return _avanza.get('_mobile/usercontent/watchlist');
 			})
 			.then(function(watchlist) {
 				return watchlist.find(function(item) {
@@ -115,6 +107,30 @@ var Module = new function() {
 		try {
 			var avanza = _avanza = new Avanza();
 
+
+			avanza.login().then(function() {
+				return avanza.openSocket();
+			})
+			.then(function(socket) {
+				socket.on('quotes', function(quote) {
+					console.log('quotes', quote);
+				});
+
+				socket.subscribe('19002', ['quotes']);
+
+
+
+				//socket.disconnect();
+			})
+			.then(function() {
+				console.log('DONE!');
+			})
+			.catch(function(error) {
+				console.log('FAAN');
+				console.log(error);
+
+			});
+/*
 			avanza.login().then(function() {
 				return getWatchList(argv.name);
 			})
@@ -126,6 +142,7 @@ var Module = new function() {
 				console.log(error);
 
 			});
+			*/
 		}
 		catch(error) {
 			console.log(error);

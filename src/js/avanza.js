@@ -305,7 +305,12 @@ var Module = module.exports = function(credentials) {
 	}
 
 
-
+	_this.get = function() {
+		return _this.request({
+			method: 'GET',
+			path: sprintf.apply(this, arguments)
+		})
+	}
 
 	_this.getAccounts = function getAccounts() {
 

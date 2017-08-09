@@ -2,176 +2,156 @@
 
 var WebSocket    = require('ws');
 var util         = require('util');
-var querystring  = require('querystring');
 var EventEmitter = require('events');
 var Path         = require('path');
 
 var sprintf     = require('yow/sprintf');
-var extend      = require('yow/extend');
 var isArray     = require('yow/is').isArray;
 var isString    = require('yow/is').isString;
 
 
-const BASE_URL = 'www.avanza.se';
+const BASE_URL   = 'www.avanza.se';
+const SOCKET_URL = 'wss://www.avanza.se/_push/cometd';
 
 
 class AvanzaSocket extends EventEmitter {
 
-	constructor() {
+	constructor(subscriptionId) {
 		super();
-
-		this._ws = undefined;
-		this._id = 1;
-		this._clientId = undefined;
-	}
-
-
-
-	open(subscriptionId) {
 
 		var self = this;
 
-		function listen(ws) {
-			ws.on('message', function(data, flags) {
+		self._socket = undefined;
+		self._id = 1;
+		self._clientId = undefined;
+		self._subscriptionId = subscriptionId;
+	}
 
-				var response = JSON.parse(data);
-
-				if (isArray(response))
-					response = response[0];
-
-				if (response.channel.indexOf('/quotes/') !== -1) {
-					self.emit('quotes', response.data);
-				}
-
-				else if (response.channel == '/meta/handshake') {
-					self._clientId = response.clientId;
-
-					var reply = {};
-					reply.advice         = {};
-					reply.advice.timeout = 0;
-					reply.channel        = '/meta/connect';
-					reply.clientId       = self._clientId;
-					reply.connectionType = 'websocket';
-					reply.id             = self._id++;
-
-					ws.send(JSON.stringify([reply]));
-				}
-
-				else if (response.channel == '/meta/connect') {
-
-					function sendReply() {
-						var reply = {};
-						reply.channel        = '/meta/connect';
-						reply.clientId       = self._clientId;
-						reply.connectionType = 'websocket';
-						reply.id             = self._id++;
-
-						ws.send(JSON.stringify([reply]));
-
-					}
-					setTimeout(sendReply, 100);
-				}
-				else if (response.channel == '/meta/subscribe') {
-
-				}
-				else {
-					console.log('Unknown socket message!');
-					console.log(JSON.stringify(response, null, '\t'));
-				}
-
-			});
-
-			ws.on('error', function(error) {
-				console.log('WebSocket error', error);
-				self.emit('error', error);
-			});
-		}
-
-		function waitForHandshakeComplete(ws) {
-
-			return new Promise(function(resolve, reject) {
-
-				var iterations = 3;
-
-				function loop() {
-
-					if (isString(self._clientId)) {
-						resolve();
-					}
-					else {
-						if (iterations-- <= 0)
-							reject(new Error('Socket timed out. No connection.'))
-						else
-							setTimeout(loop, 1000);
-					}
-				}
-				loop();
-			});
-		};
+	send(message) {
+		this._socket.send(JSON.stringify([message]));
+	};
 
 
-		function waitForHandshake(ws) {
+	open() {
 
-			return new Promise(function(resolve, reject) {
+		var self = this;
 
-				var iterations = 3;
-
-				function loop() {
-					if (ws.readyState === ws.OPEN) {
-						var reply = {};
-						reply.ext                      = {};
-						reply.ext.subscriptionId       = subscriptionId;
-						reply.supportedConnectionTypes = ['websocket', 'long-polling', 'callback-polling'];
-						reply.channel                  = '/meta/handshake';
-						reply.id                       = self._id++;
-						reply.version                  = '1.0';
-
-						ws.send(JSON.stringify([reply]));
-						resolve();
-					}
-					else {
-						if (iterations-- <= 0)
-							reject(new Error('Socket timed out. The socket did not open.'));
-						else
-							setTimeout(loop, 500);
-					}
-
-				}
-
-				loop();
-
-			});
-		}
-
-		if (self._ws != undefined)
-			return Promise.resolve();
-
-		if (subscriptionId == undefined)
+		if (self._subscriptionId == undefined)
 			return Promise.reject(new Error('The socket requires a subscription ID to work.'));
+
+		self._socket = new WebSocket(SOCKET_URL);
+
+		self._socket.on('message', function(data, flags) {
+
+			var response = JSON.parse(data);
+
+			if (isArray(response))
+				response = response[0];
+
+			console.log('Response:', response);
+
+			if (response.channel == '/meta/handshake') {
+				self._clientId = response.clientId;
+
+				self.send({
+					advice         : {timeout:0},
+					channel        : '/meta/connect',
+					clientId       : self._clientId,
+					connectionType : 'websocket',
+					id             : self._id++
+				});
+			}
+
+			else if (response.channel == '/meta/connect') {
+
+				function sendReply() {
+					self.send({
+						channel        : '/meta/connect',
+						clientId       : self._clientId,
+						connectionType : 'websocket',
+						id             : self._id++
+
+					});
+				}
+				setTimeout(sendReply, 100);
+			}
+			else {
+				self.emit(response.channel, response.data);
+			}
+
+		});
+
+		self._socket.on('error', function(error) {
+			console.log('WebSocket error', error);
+			self.emit('error', error);
+		});
+
 
 		return new Promise(function(resolve, reject) {
 
-			var ws = new WebSocket('wss://www.avanza.se/_push/cometd');
+			function sendHandshake() {
 
-			listen(ws);
+				return new Promise(function(resolve, reject) {
 
-			waitForHandshake(ws).then(function() {
-				return waitForHandshakeComplete(ws);
+					var iterations = 10;
+
+					function loop() {
+
+						if (self._socket.readyState === self._socket.OPEN) {
+							self.send({
+								ext                      : {subscriptionId:self._subscriptionId},
+								supportedConnectionTypes : ['websocket', 'long-polling', 'callback-polling'],
+								channel                  : '/meta/handshake',
+								id                       : self._id++,
+								version                  : '1.0'
+							});
+
+							resolve();
+						}
+						else {
+							if (iterations-- <= 0)
+								reject(new Error('Socket timed out. The socket did not open.'));
+							else
+								setTimeout(loop, 500);
+						}
+
+					}
+
+					loop();
+
+				});
+			}
+
+			function waitForReply() {
+
+				return new Promise(function(resolve, reject) {
+
+					var iterations = 10;
+
+					function loop() {
+
+						if (isString(self._clientId)) {
+							resolve();
+						}
+						else {
+							if (iterations-- <= 0)
+								reject(new Error('Socket timed out. No connection.'))
+							else
+								setTimeout(loop, 500);
+						}
+					}
+					loop();
+				});
+			};
+
+			sendHandshake().then(function() {
+				return waitForReply();
 			})
 
 			.then(function() {
-
-				// Save WebSocket connection
-				self._ws = ws;
-
-				// Send connect
-				self.emit('connect');
-
 				resolve();
 			})
 			.catch(function(error) {
-				console.log(error);
-				ws.close();
 				reject(error);
 			});
 
@@ -180,38 +160,39 @@ class AvanzaSocket extends EventEmitter {
 	}
 
 	close() {
-		if (this._ws != undefined)
-			this._ws.close();
+		if (this._socket != undefined)
+			this._socket.close();
 
-		this._ws = undefined;
+		this._socket = undefined;
 		this._clientId = undefined;
 	}
 
-	subscribe(id, channels) {
+	subscribe(channel, id, callback) {
 
 		var self = this;
 
-		if (self._ws == undefined)
+		if (self._socket == undefined)
 			throw new Error('The socket is not yet initialized. You must initialize() before subscribing to channels.');
 
 		if (!isString(self._clientId))
 			throw new Error('The socket requires a client ID to work.');
 
-		if (channels == undefined)
-			channels = ['quotes'];
+		if (isArray(id))
+			id = id.join(',');
 
-		if (!isArray(channels))
-			channels = [channels];
+		var subscription = sprintf('/%s/%s', channel, id);
 
-		channels.forEach(function(channel) {
-			var message = {};
-			message.connectionType = 'websocket';
-			message.channel        = '/meta/subscribe';
-			message.clientId       = self._clientId;
-			message.id             = self._id++;
-			message.subscription   = sprintf('/%s/%s', channel, id);
+		self.send({
+			channel        : '/meta/subscribe',
+			connectionType : 'websocket',
+			clientId       : self._clientId,
+			id             : self._id++,
+			subscription   : subscription
 
-			self._ws.send(JSON.stringify([message]));
+		});
+
+		self.on(subscription, function(data) {
+			callback(data);
 		});
 	};
 
@@ -223,24 +204,52 @@ class Avanza {
 
 	constructor() {
 		this.session = {};
+		this.socket = undefined;
 	}
 
-	openSocket() {
 
+	enableSubscriptions() {
 		var self = this;
+
+		if (self.socket != undefined)
+			return Promise.resolve();
 
 		return new Promise(function(resolve, reject) {
 
-			var socket = new AvanzaSocket();
+			try {
+				var socket = new AvanzaSocket(self.session.pushSubscriptionId);
 
-			socket.open(self.session.pushSubscriptionId).then(function() {
-				resolve(socket);
-			})
-			.catch(function(error) {
+				socket.open().then(function() {
+					resolve(self.socket = socket);
+				})
+				.catch(function(error) {
+					throw error;
+				})
+
+			}
+			catch(error) {
 				reject(error);
-			})
-
+			}
 		});
+	}
+
+	disableSubscriptions() {
+		var self = this;
+
+		if (self.socket != undefined) {
+			self.socket.close();
+			self.socket = undefined;
+		}
+	}
+
+
+	subscribe(channel, id, callback) {
+		var self = this;
+
+		if (self.socket == undefined)
+			return Promise.reject('Need to call enableSubscriptions() first.');
+
+		return self.socket.subscribe(channel, id, callback);
 	}
 
 	request(options) {
@@ -365,9 +374,7 @@ class Avanza {
 								pushSubscriptionId: response.body.pushSubscriptionId
 							};
 
-							self.session = session;
-							resolve(self.session);
-
+							resolve(self.session = session);
 						}
 
 					});
@@ -383,9 +390,6 @@ class Avanza {
 		return loginWithUserName(credentials.username, credentials.password);
 
 	}
-
-
-
 }
 
 

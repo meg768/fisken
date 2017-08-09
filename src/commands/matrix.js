@@ -109,20 +109,20 @@ var Module = new function() {
 
 
 			avanza.login().then(function() {
-				return avanza.openSocket();
-			})
-			.then(function(socket) {
-				socket.on('quotes', function(quote) {
-					console.log('quotes', quote);
-				});
-
-				socket.subscribe('19002', ['quotes']);
-
-
-
-				//socket.disconnect();
+				return avanza.enableSubscriptions();
 			})
 			.then(function() {
+
+				avanza.subscribe('quotes', '19002', function(data) {
+					console.log(data);
+				});
+
+				return new Promise(function(resolve, reject) {
+					setTimeout(resolve, 5000);
+				});
+			})
+			.then(function() {
+				avanza.disableSubscriptions();
 				console.log('DONE!');
 			})
 			.catch(function(error) {

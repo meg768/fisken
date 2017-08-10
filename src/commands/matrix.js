@@ -1,6 +1,7 @@
 var sprintf  = require('yow/sprintf');
 var isArray  = require('yow/is').isArray;
 var Avanza   = require('../js/avanza.js');
+//var AvanzaOld   = require('../js/avanza-old.js');
 
 
 var Module = new function() {
@@ -112,17 +113,38 @@ var Module = new function() {
 				return avanza.enableSubscriptions();
 			})
 			.then(function() {
-
-				avanza.subscribe('quotes', ['19002', '5364'], function(data) {
+/*
+				avanza.subscribe('quotes', ['19002'], function(data) {
+					console.log('********************************');
 					console.log(data);
 				});
 
+				avanza.subscribe('quotes', ['5364'], function(data) {
+					console.log('-----------------------------');
+					console.log(data);
+				});
+
+				*/
+/*
+				avanza.subscribe('quotes', ['5468'], function(data) {
+					var time = new Date(data.updated);
+					console.log('Fingerprint', data.lastPrice, time.toLocaleTimeString());
+					//console.log(data);
+				});
+				*/
+				avanza.subscribe('quotes', ['19002'], function(data) {
+					var time = new Date(data.updated);
+					console.log('OMX', data.lastPrice, time.toLocaleTimeString());
+					//console.log(data);
+				});
+				
+
 				return new Promise(function(resolve, reject) {
-					setTimeout(resolve, 5000);
+					setTimeout(resolve, 600000);
 				});
 			})
 			.then(function() {
-				avanza.disableSubscriptions();
+//				avanza.disableSubscriptions();
 				console.log('DONE!');
 			})
 			.catch(function(error) {

@@ -137,7 +137,7 @@ var Module = new function() {
 					console.log('OMX', data.lastPrice, time.toLocaleTimeString());
 					//console.log(data);
 				});
-				
+
 
 				return new Promise(function(resolve, reject) {
 					setTimeout(resolve, 600000);

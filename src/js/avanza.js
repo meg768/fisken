@@ -35,95 +35,75 @@ class AvanzaSocket extends EventEmitter {
 		var self = this;
 		var socket = new WebSocket(SOCKET_URL);
 
+		function send(message) {
+			console.log('Sending:', message);
+			socket.send(JSON.stringify([message]));
+		};
+
+		socket.on('open', function() {
+			send({
+				ext                      : {subscriptionId:self._subscriptionId},
+				supportedConnectionTypes : ['websocket', 'long-polling', 'callback-polling'],
+				channel                  : '/meta/handshake',
+				id                       : self._id++,
+				version                  : '1.0'
+			});
+
+		});
+
+
 		socket.on('message', function(data, flags) {
 
-			if (self._socket != undefined) {
-				var response = JSON.parse(data);
+			var response = JSON.parse(data);
 
-				if (isArray(response))
-					response = response[0];
+			if (isArray(response))
+				response = response[0];
 
-				console.log('Response:', response);
+			//console.log('Response:', response);
 
-				switch(response.channel) {
-					case '/meta/handshake': {
-						self._clientId = response.clientId;
+			switch(response.channel) {
+				case '/meta/handshake': {
+					self._socket = socket;
+					self._clientId = response.clientId;
 
-						self.send({
-							advice         : {timeout:0},
+					send({
+						advice         : {timeout:0},
+						channel        : '/meta/connect',
+						clientId       : self._clientId,
+						connectionType : 'websocket',
+						id             : self._id++
+					});
+
+					break;
+				}
+
+				case '/meta/connect': {
+
+					function reply() {
+						send({
+							advice         : {timeout:30000},
 							channel        : '/meta/connect',
 							clientId       : self._clientId,
 							connectionType : 'websocket',
 							id             : self._id++
 						});
-
-						break;
 					}
 
-					case '/meta/connect': {
-
-						function reply() {
-							self.send({
-								advice         : {timeout:30000},
-								channel        : '/meta/connect',
-								clientId       : self._clientId,
-								connectionType : 'websocket',
-								id             : self._id++
-							});
-						}
-
-						//setTimeout(reply, 100);
-						reply();
-						break;
-					}
-
-					case '/meta/subscribe': {
-						break;
-					}
-
-					default: {
-						self.emit(response.channel, response.data);
-						break;
-					}
-
+					//setTimeout(reply, 100);
+					reply();
+					break;
 				}
-			}
-		});
 
-		return new Promise(function(resolve, reject) {
-
-			var iterations = 50;
-
-			function poll() {
-				if (socket.readyState === socket.OPEN) {
-					resolve(self._socket = socket);
+				case '/meta/subscribe': {
+					break;
 				}
-				else {
-					if (iterations-- <= 0)
-						reject(new Error('Socket timed out. The socket did not open.'));
-					else
-						setTimeout(poll, 100);
+
+				default: {
+					self.emit(response.channel, response.data);
+					break;
 				}
 
 			}
-
-
-			poll();
-		});
-
-	}
-
-
-	handshake() {
-		var self = this;
-		var socket = self._socket;
-
-		self.send({
-			ext                      : {subscriptionId:self._subscriptionId},
-			supportedConnectionTypes : ['websocket', 'long-polling', 'callback-polling'],
-			channel                  : '/meta/handshake',
-			id                       : self._id++,
-			version                  : '1.0'
 		});
 
 		return new Promise(function(resolve, reject) {
@@ -134,8 +114,11 @@ class AvanzaSocket extends EventEmitter {
 				if (isString(self._clientId))
 					resolve();
 				else {
-					if (iterations-- <= 0)
+					if (iterations-- <= 0) {
+						socket.close();
 						reject(new Error('Socket timed out. No handshake.'));
+
+					}
 					else
 						setTimeout(poll, 100);
 				}
@@ -145,8 +128,8 @@ class AvanzaSocket extends EventEmitter {
 
 		});
 
-	}
 
+	}
 
 
 	close() {
@@ -163,7 +146,7 @@ class AvanzaSocket extends EventEmitter {
 		var self = this;
 
 		if (self._socket == undefined)
-			throw new Error('The socket is not yet initialized. You must initialize() before subscribing to channels.');
+			throw new Error('The socket is not yet open. You must open() before subscribing to channels.');
 
 		if (!isString(self._clientId))
 			throw new Error('The socket requires a client ID to work.');
@@ -174,7 +157,6 @@ class AvanzaSocket extends EventEmitter {
 		var subscription = sprintf('/%s/%s', channel, id);
 
 		self.on(subscription, function(data) {
-			//console.log(data);
 			callback(data);
 		});
 
@@ -213,10 +195,6 @@ class Avanza {
 				var socket = new AvanzaSocket(self.session.pushSubscriptionId);
 
 				socket.open().then(function() {
-					console.log('OPen OK');
-					return socket.handshake();
-				})
-				.then(function() {
 					resolve(self.socket = socket);
 				})
 				.catch(function(error) {

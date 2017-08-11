@@ -24,6 +24,7 @@ class AvanzaSocket extends EventEmitter {
 		self._id = 1;
 		self._clientId = undefined;
 		self._subscriptionId = subscriptionId;
+		self._messages = {};
 	}
 
 	send(message) {
@@ -79,18 +80,14 @@ class AvanzaSocket extends EventEmitter {
 
 				case '/meta/connect': {
 
-					function reply() {
-						send({
-							advice         : {timeout:30000},
-							channel        : '/meta/connect',
-							clientId       : self._clientId,
-							connectionType : 'websocket',
-							id             : self._id++
-						});
-					}
+					send({
+						advice         : {timeout:30000},
+						channel        : '/meta/connect',
+						clientId       : self._clientId,
+						connectionType : 'websocket',
+						id             : self._id++
+					});
 
-					//setTimeout(reply, 100);
-					reply();
 					break;
 				}
 
@@ -381,6 +378,13 @@ class Avanza {
 		return this.request(options);
 	}
 
+	getAccounts() {
+
+		return this.request({
+			method: 'GET',
+			path: sprintf('_mobile/account/list?onlyTradable=false')
+		});
+	}
 }
 
 

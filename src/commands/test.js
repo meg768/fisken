@@ -34,7 +34,7 @@ var Module = new function() {
 		var options = {
 			body:{
 				user: "root",
-				password: "potatismos",
+				password: "XXX",
 				query: "select symbol from stocks"
 
 			}

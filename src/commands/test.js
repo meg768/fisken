@@ -24,6 +24,35 @@ var Module = new function() {
 	}
 
 
+	function example2() {
+
+		var Request = require('yow/request');
+		var request = new Request('http://app-o.se', {
+			headers: {'Content-Type': 'application/json'}
+		});
+
+		var options = {
+			body:{
+				user: "root",
+				password: "potatismos",
+				query: "select symbol from stocks"
+
+			}
+		};
+
+		request.get('/mysql/munch', options).then(function(response) {
+
+			console.log(response);
+
+		})
+
+		.catch (function(error) {
+			console.log(error);
+
+		});
+
+
+	}
 	function example() {
 
 		var Request = require('yow/request');
@@ -62,7 +91,7 @@ var Module = new function() {
 
 		try {
 
-			example();
+			example2();
 
 
 		}
